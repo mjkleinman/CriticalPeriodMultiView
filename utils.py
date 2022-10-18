@@ -132,7 +132,7 @@ def finalize(existingAggregate):
 
 
 def get_dominance(val_loader, model, criterion, print_epoch, save_dir, device, normalize_indep=True, zero_input=False,
-                  plot_diff=True, filename=None):
+                  plot_diff=True, filename=None, save_raw_fsv=True, title_prepend=None):
     """
     Computes the variance on units in a representation, when one view is varied, and the other is kept fixed.
     Mirrors the occular dominance diagrams found in neuroscience papers
@@ -182,7 +182,7 @@ def get_dominance(val_loader, model, criterion, print_epoch, save_dir, device, n
     import matplotlib.pyplot as plt
     import seaborn as sns
 
-    fig = plt.figure(figsize=(4., 3.))
+    fig = plt.figure(figsize=(3.2, 2.7))
 
     # either normalize by sum of variance to test if this is what causes the four modes
     if normalize_indep:
@@ -200,7 +200,14 @@ def get_dominance(val_loader, model, criterion, print_epoch, save_dir, device, n
         plt.hist(b, bins, label='a', color='r')
 
     # plt.title(f'{print_epoch} epoch {save_name[:-4]}')
-    plt.title(f'{print_epoch} epoch')
+    # Hacky before deadline but needed since plotting during training as well (at epochs 1, 21, 41 etcs).
+    # Note we save the values for plot modification as well
+    change_title = (title_prepend == 'Blur' and print_epoch % 10 == 0)
+    title_save_epoch = print_epoch - 180 if change_title else print_epoch
+    plt.title(f'{title_prepend} {title_save_epoch} epoch' if change_title else f'{print_epoch} epoch')
+    plt.xlabel('Relative Source Variance')
+    plt.ylabel('Number of Units')
+    plt.yticks([])
     ax = plt.gca()
     ax.spines.right.set_visible(False)
     ax.spines.top.set_visible(False)
@@ -210,3 +217,11 @@ def get_dominance(val_loader, model, criterion, print_epoch, save_dir, device, n
     save_filename = f'{print_epoch}_{filename}.pdf' if filename is not None else f'{print_epoch}_histogram.pdf'
     savepath = os.path.join(output_dir, save_filename)
     plt.savefig(savepath, format='pdf', dpi=None, bbox_inches='tight')
+
+    # Saving FSV to help with future plotting
+    if save_raw_fsv:
+        fsv_log_output_dir = os.path.join(output_dir, 'fsv_logs')
+        Path(fsv_log_output_dir).mkdir(parents=True, exist_ok=True)
+        fsv_log_filename = f"{save_filename[:-4]}.npz" # changing .pdf to .npz
+        savepath_fsv = os.path.join(fsv_log_output_dir, fsv_log_filename)
+        np.savez(savepath_fsv, a=a, b=b)

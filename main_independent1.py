@@ -6,7 +6,6 @@ import time
 import argparse
 import os
 import time
-import sys
 
 import numpy as np
 import torch
@@ -19,6 +18,7 @@ import torch.backends.cudnn as cudnn
 from logger import Logger
 from models import SResNet18, SResNet18MultiHead, ResNet18
 from utils import get_dominance, get_error, AverageMeter, set_batchnorm_mode
+import sys
 
 parser = argparse.ArgumentParser(description='Critical period experiments')
 parser.add_argument('--arch', default='sresnet', type=str,
@@ -244,8 +244,8 @@ if __name__ == '__main__':
         print ([p.size() for p in model.parameters()])
 
     # define loss function (criterion) and optimizer
-    from cifar_data import get_cifar_loaders_ind #
-    get_dataset_loaders = get_cifar_loaders_ind
+    from cifar_data import get_cifar_loaders_ind_new #
+    get_dataset_loaders = get_cifar_loaders_ind_new
     datasets = {
         'deficit': get_dataset_loaders(batch_size=args.batch_size, workers=args.workers,
                                        augment=args.augment, deficit=args.deficit, view_size=args.view_size, is_diff_aug=args.diff_aug),

@@ -244,8 +244,8 @@ if __name__ == '__main__':
         print ([p.size() for p in model.parameters()])
 
     # define loss function (criterion) and optimizer
-    from cifar_data import get_cifar_loaders_ind #
-    get_dataset_loaders = get_cifar_loaders_ind
+    from cifar_data import get_cifar_loaders_ind_rhf #
+    get_dataset_loaders = get_cifar_loaders_ind_rhf
     datasets = {
         'deficit': get_dataset_loaders(batch_size=args.batch_size, workers=args.workers,
                                        augment=args.augment, deficit=args.deficit, view_size=args.view_size, is_diff_aug=args.diff_aug),
@@ -262,6 +262,7 @@ if __name__ == '__main__':
                                      weight_decay=args.weight_decay)
     else:
         raise ValueError("Optimizer {} not valid.".format(args.optimizer))
+
 
     if args.resume:
         checkpoint_file = args.resume

@@ -159,7 +159,7 @@ def get_cifar_loaders_s(workers=0, batch_size=128, augment=True, deficit=[], val
     transform_test = transforms.Compose(transform_test)
 
     # Note only 1 view is being augmented right now!
-    trainset = DoubleCIFAR10(root=os.path.join(os.environ['HOME'], 'data'), train=True, download=False,
+    trainset = DoubleCIFAR10(root=os.path.join(os.environ['HOME'], 'data'), train=True, download=True,
                              transform=transform_train, transform_b=transform, is_rand_zero_input=is_rand_zero_input,
                              view_size=view_size)
     testset = DoubleCIFAR10(root=os.path.join(os.environ['HOME'], 'data'), train=False, download=False,
@@ -200,6 +200,165 @@ def get_cifar_loaders_ind(workers=0, batch_size=128, augment=True, deficit=[], v
                                         transform_b=transform if is_diff_aug else transform_train,
                                         is_rand_zero_input=is_rand_zero_input, view_size=view_size)
     testset = DoubleCIFAR10Independent(root=os.path.join(os.environ['HOME'], 'data'), train=False, download=False,
+                                       transform=transform_test, transform_b=transform,
+                                       is_rand_zero_input=is_rand_zero_input,
+                                       view_size=view_size)
+
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=workers)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=val_batch_size, shuffle=False, num_workers=workers)
+
+    return trainloader, testloader
+
+
+##### NEW
+
+class DoubleCIFAR10IndependentNew(DoubleCIFAR10):
+    """
+    Class that returns two copies of a CIFAR image, but is zeroed out from sides to create two separate views.
+    Inherits DoubleCIFAR10, but also applies the Flip Augmentation to both views
+    """
+
+    def __getitem__(self, index):
+
+        img, target = self.data[index], self.targets[index]
+
+        # consistent with all other datasets to return a PIL Image
+        img = Image.fromarray(img)
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        img_a = self.default_transform(img)
+        img_b = self.default_transform(img)
+
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        # Maybe change the dimensions here and re-run?
+        img_a[:, :, -self.view_to_zero:] = 0.
+        img_b[:, :, :self.view_to_zero] = 0.
+
+        # Want to zero out to have in data distribution to evaluate information in each view
+        if self.train and self.is_rand_zero_input:
+            rand_num = np.random.rand(1)
+            if rand_num > 0.9:
+                img_a[:, :, :] = 0.
+            elif rand_num < 0.1:
+                img_b[:, :, :] = 0.
+
+        return img_a, img_b, target
+
+
+def get_cifar_loaders_ind_new(workers=0, batch_size=128, augment=True, deficit=[], val_batch_size=100,
+                              is_rand_zero_input=False, view_size=16, is_diff_aug=False):
+    """
+    Allow independent Augmentation on each view
+    With RandomHorizontalflip, and flip both views theres a chance that the views show same thing.
+    Args:
+        is_diff_aug: True if use separate augmentation for each view
+    """
+
+    transform_train = []
+    if augment and 'noise' not in deficit:
+        transform_train += [
+            transforms.Pad(padding=4, fill=(125, 123, 113)),
+            transforms.RandomCrop(32, padding=0),
+            transforms.RandomHorizontalFlip()
+        ]
+    transform_train = transforms.Compose(transform_train)
+
+    transform_test = []
+    transform_test = transforms.Compose(transform_test)
+
+    trainset = DoubleCIFAR10IndependentNew(root=os.path.join(os.environ['HOME'], 'data'), train=True, download=True,
+                                           transform=transform_train, is_rand_zero_input=is_rand_zero_input,
+                                           view_size=view_size)
+    testset = DoubleCIFAR10IndependentNew(root=os.path.join(os.environ['HOME'], 'data'), train=False, download=False,
+                                          transform=transform_test, is_rand_zero_input=is_rand_zero_input,
+                                          view_size=view_size)
+
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=workers)
+    testloader = torch.utils.data.DataLoader(testset, batch_size=val_batch_size, shuffle=False, num_workers=workers)
+
+    return trainloader, testloader
+
+
+class DoubleCIFAR10IndependentRHF(DoubleCIFAR10):
+    """
+    Class that returns two copies of a CIFAR image, but is zeroed out from sides to create two separate views.
+    Inherits DoubleCIFAR10, but also applies the Flip Augmentation to both views
+    """
+
+    def __getitem__(self, index):
+        # Call this with augment
+        # flip = np.random.rand(1) < 0.5  # Stores whether to flip all images or not
+
+        if self.train:
+            img, target = self.data[index], self.targets[index]
+        else:
+            img, target = self.data[index], self.targets[index]
+
+        # doing this so that it is consistent with all other datasets
+        # to return a PIL Image
+        img = Image.fromarray(img)
+
+        if self.transform is not None:
+            img = self.transform(img)
+
+        if self.transform_b is not None:
+            img_b = self.transform_b(img)
+
+        # if flip:  # Need to apply to both, apply before normalization from default transform
+        #     img = TF.hflip(img)
+        #     img_b = TF.hflip(img_b)
+
+        img = self.default_transform(img)
+        img_b = self.default_transform(img_b)
+
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        # Maybe change the dimensions here and re-run?
+        img[:, :, -self.view_to_zero:] = 0.  # used to only be 14
+        img_b[:, :, :self.view_to_zero] = 0.
+
+        # Want to zero out to have in data distribution to evaluate information in each view
+        if self.train and self.is_rand_zero_input:
+            rand_num = np.random.rand(1)
+            if rand_num > 0.9:
+                img[:, :, :] = 0.
+            elif rand_num < 0.1:
+                img_b[:, :, :] = 0.
+
+        return img, img_b, target
+def get_cifar_loaders_ind_rhf(workers=0, batch_size=128, augment=True, deficit=[], val_batch_size=100,
+                          is_rand_zero_input=False, view_size=14, is_diff_aug=False):
+    """
+    Allow independent Augmentation on each view
+    With RandomHorizontalflip, and flip both views theres a chance that the views show same thing.
+    Args:
+        is_diff_aug: True if use separate augmentation for each view
+    """
+    transform = []
+    transform = transforms.Compose(transform)
+
+    transform_train = []
+    if augment and 'noise' not in deficit:
+        transform_train += [
+            transforms.Pad(padding=4, fill=(125, 123, 113)),
+            transforms.RandomCrop(32, padding=0),
+            transforms.RandomHorizontalFlip()
+        ]
+    transform_train = transforms.Compose(transform_train)
+
+    transform_test = []
+    transform_test = transforms.Compose(transform_test)
+
+    trainset = DoubleCIFAR10IndependentRHF(root=os.path.join(os.environ['HOME'], 'data'), train=True, download=False,
+                                        transform=transform_train,
+                                        transform_b=transform if is_diff_aug else transform_train,
+                                        is_rand_zero_input=is_rand_zero_input, view_size=view_size)
+    testset = DoubleCIFAR10IndependentRHF(root=os.path.join(os.environ['HOME'], 'data'), train=False, download=False,
                                        transform=transform_test, transform_b=transform,
                                        is_rand_zero_input=is_rand_zero_input,
                                        view_size=view_size)

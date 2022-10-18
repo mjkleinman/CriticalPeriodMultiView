@@ -16,7 +16,7 @@ import torch.optim
 import torch.utils.data
 
 from logger import Logger
-from models import SResNet18, SResNet18MultiHead
+from models import SResNet18, SResNet18MultiHead, DoubleNLayerDisciminator
 from utils import get_dominance, get_error, AverageMeter, set_batchnorm_mode
 
 parser = argparse.ArgumentParser(description='Critical period experiments')
@@ -128,7 +128,8 @@ def train(data_loader, model, criterion, optimizer, epoch, train=True):
         accuracies.update(acc.item(), target.size(0))
 
         # input to each pathways to store logging for each view decoding (useful only when zeroing out)
-        if epoch % 10 == 0 and args.is_rand_zero_input:
+        # epoch % 10 == 1 is useful when resuming
+        if (epoch % 10 == 0 or epoch % 10 == 1) and args.is_rand_zero_input:
             with torch.no_grad():
                 output_b, _ = model(torch.zeros_like(input_a).to(device), input_b)
                 loss_b = criterion(output_b, target)
@@ -210,6 +211,8 @@ if __name__ == '__main__':
         model = SResNet18(n_channels=n_channels).cuda()
     elif args.arch == 'sresnetmulti':
         model = SResNet18MultiHead(n_channels=n_channels).cuda()
+    elif args.arch == 'nlayer':
+        model = DoubleNLayerDisciminator(n_channels=n_channels).cuda()
     else:
         raise ValueError("Architecture {} not valid.".format(args.arch))
 
@@ -270,12 +273,17 @@ if __name__ == '__main__':
         train_loader, val_loader = datasets['normal'] # Use normal dataset (without deficit)
         dry_run(train_loader, model)
         get_dominance(val_loader, model, criterion, args.start_epoch, args.dominance_save_name, device=device,
-                      filename=args.dominance_file_name)
+                      filename=args.dominance_file_name, title_prepend='Blur')
         sys.exit()
 
     # -- 5. Main training loop
     try:
         for epoch in range(args.start_epoch, args.schedule[-1]):
+            # Save at beginning so deficit isn't applied for one epoch and resumed model is random
+            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}
+            if args.save and epoch % args.save_every == 0:
+                save_checkpoint(state, step=True)
+
             adjust_learning_rate(optimizer, epoch, args.schedule[:-1])
             if args.deficit_start is None or args.deficit_end is None:
                 train_loader, val_loader = datasets['deficit']
@@ -290,9 +298,7 @@ if __name__ == '__main__':
             # validate(val_loader, model, criterion, epoch)
             validate(val_loader, model, criterion, optimizer, epoch)
 
-            state = {'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}
-            if args.save and epoch % args.save_every == 0:
-                save_checkpoint(state, step=True)
+
         state = {'epoch': epoch, 'state_dict': model.state_dict(), 'optimizer': optimizer.state_dict()}
         if args.save_final:
             save_checkpoint(state, step=False)

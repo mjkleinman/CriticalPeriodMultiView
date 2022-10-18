@@ -5,6 +5,7 @@ import torch.utils.data
 from torch import nn
 import torch.nn.functional as F
 from torch.autograd import Variable
+import copy
 
 
 def get_parameter(model, parameter):
@@ -182,3 +183,66 @@ class SResNet18MultiHead(nn.Module):
         out_b_final = self.linear_b(out)
 
         return out_both, out_a_final, out_b_final
+
+
+class Conv(nn.Sequential):
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=None, output_padding=0, activation_fn=nn.ReLU, batch_norm=True, transpose=False):
+        if padding is None:
+            padding = (kernel_size-1)//2
+        model = []
+        if not transpose:
+            model += [nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding, bias=not batch_norm)]
+        else:
+            model += [nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, output_padding=output_padding, bias=not batch_norm)]
+        if batch_norm:
+            model += [nn.BatchNorm2d(out_channels, affine=True)]
+        model += [activation_fn()]
+        super(Conv, self).__init__(*model)
+
+class Flatten(nn.Module):
+    def __init__(self):
+        super(Flatten, self).__init__()
+    def forward(self,x):
+        return x.view(x.size(0), -1)
+
+
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+    def forward(self,x):
+        return x
+
+class DoubleNLayerDisciminator(nn.Module):
+    def __init__(self, k=1, n_blocks=2, filters_percentage=1., n_channels=3, n_classes=10, dropout=False, batch_norm=True):
+        super(DoubleNLayerDisciminator, self).__init__()
+
+        n_filters = int(96 * filters_percentage)
+        self.features1, _ = self._make_layer(n_channels, n_blocks, n_filters, batch_norm, dropout, k)
+        self.features2, n_filters = self._make_layer(n_channels, n_blocks, n_filters, batch_norm, dropout, k)
+
+        print(n_filters)
+        self.classifier = nn.Sequential(
+            Conv(n_filters, n_filters, kernel_size=3, stride=1, batch_norm=batch_norm),
+            Conv(n_filters, n_filters, kernel_size=1, stride=1, batch_norm=batch_norm),
+            nn.Conv2d(n_filters, n_classes, 1, 1),
+            nn.AvgPool2d(int(32/2**n_blocks)),
+            Flatten()
+        )
+
+    def _make_layer(self, n_channels, n_blocks, n_filters, batch_norm, dropout, k):
+        layers = []
+        layers += [Conv(n_channels, n_filters, kernel_size=3, batch_norm=batch_norm)]
+        for j in range(n_blocks):
+            # for i in range(k-1):
+            layers += [Conv(n_filters, n_filters, kernel_size=3, batch_norm=batch_norm)]
+            layers += [Conv(n_filters, 2*n_filters, kernel_size=3, stride=2, batch_norm=batch_norm)]
+            layers += [nn.Dropout(inplace=True) if dropout else Identity()]
+            n_filters *= 2
+        return nn.Sequential(*layers), n_filters
+
+    def forward(self, input1, input2):
+        features1 = self.features1(input1)
+        features2 = self.features2(input2)
+        output = features1 + features2
+        output = self.classifier(output)
+        return output, Variable(torch.zeros(1).cuda())

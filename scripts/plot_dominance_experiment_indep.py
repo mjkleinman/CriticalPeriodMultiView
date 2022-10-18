@@ -36,18 +36,18 @@ print(exlog['runs'])
 
 
 # Plot the checkpoints during training for the independent view
-rc = subprocess.call(f"python plot_experiment.py {args.experiment} --save_dir {args.dominance_save_name} -f pdf -t Blur\ Pathway", shell=True)
+rc = subprocess.call(f"python plot_experiment.py {args.experiment} --save_dir {args.dominance_save_name} -f pdf -t Independent\ Pathway", shell=True)
 
 if args.plot_dominances:
     main_log = exlog['main']
     for epoch in range(0, 181, 20):
-        rc = subprocess.call(f"./main.py --dominance --dominance_save_name {args.dominance_save_name} --dominance_file_name blur \
+        rc = subprocess.call(f"./main_independent_rhf.py --dominance --dominance_save_name {args.dominance_save_name} --dominance_file_name indep \
                          --arch {args.arch} --view-size {args.view_size} --resume /home/ubuntu/CriticalPeriodMultiView/models/{main_log}_{epoch}.pth",
                              shell=True)
 
 
     # Plot after resuming training without the deficit
     for log in exlog['runs']:
-        rc = subprocess.call(f"./main.py --dominance --dominance_save_name {args.dominance_save_name} --dominance_file_name resume \
+        rc = subprocess.call(f"./main_independent_rhf.py --dominance --dominance_save_name {args.dominance_save_name} --dominance_file_name resume \
                          --arch {args.arch} --view-size {args.view_size} --resume /home/ubuntu/CriticalPeriodMultiView/models/{log}.pth", shell=True)
 

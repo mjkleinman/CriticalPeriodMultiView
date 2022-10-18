@@ -17,14 +17,12 @@ mpl.use('Agg')
 import matplotlib.ticker as tck
 import matplotlib.pyplot as plt
 import pandas as pd
-import seaborn as sns
-from scipy.signal import savgol_filter
-
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('experiment', nargs='+', type=str,
                     help='experiment to plot')
 parser.add_argument('--start-epoch', default=9, type=int)
+parser.add_argument('--save_dir', default='', type=str)
 parser.add_argument('--save_suffix', default='', type=str)
 parser.add_argument('--format', '-f', default='pdf', type=str,
                     help='output a format')
@@ -47,7 +45,7 @@ args = parser.parse_args()
 
 dataframes, deficit_ends = [], []
 
-fig = plt.figure(figsize=(4., 3.))
+fig = plt.figure(figsize=(3.2, 2.7))
 ax = fig.add_subplot(111)
 
 for experiment in args.experiment:
@@ -58,32 +56,26 @@ for experiment in args.experiment:
         'loss': [v['loss'] for v in logger.get('valid')],
         'loss_a': [v['loss_a'] for v in logger.get('valid')],
         'loss_b': [v['loss_b'] for v in logger.get('valid')], })
-    # df_t = pd.DataFrame.from_dict({
-    #     'epoch': [v['epoch'] for v in logger.get('trace')],
-    #     'trace': [v['trace'] for v in logger.get('trace')],})
     dataframes += [df]
     deficit_ends += [logger['args'].deficit_end if logger['args'].deficit_end is not None else logger['args'].schedule[-1]]
 
 
 lines = []
-
 cmap = plt.get_cmap('Blues')
-start_epoch = args.start_epoch
-end_epoch = start_epoch + 171 # 180 is the number of epochs to continue
+start_epoch = 0
+end_epoch = 171 # 180 is the number of epochs to continue (but since starting at 0, didn't save the last epoch)
 for i, (deficit_end, df) in enumerate(zip(deficit_ends, dataframes)):
     color = cmap(float(i + 3) / (len(dataframes) + 3))
     y_a = 3.32 - (df['loss_a'] * 1.44)
     y_b = 3.32 - (df['loss_b'] * 1.44)
     y = 3.32 - (df['loss'] * 1.44)
-    lines += ax.plot(df['epoch'][start_epoch:end_epoch:10], y[start_epoch:end_epoch:10], color='black', label='both inputs')
-    lines += ax.plot(df['epoch'][start_epoch:end_epoch:10], y_a[start_epoch:end_epoch:10], color='red', label='input_a')
-    lines += ax.plot(df['epoch'][start_epoch:end_epoch:10], y_b[start_epoch:end_epoch:10], color='orange', label='input_b')
-
+    pts = list(range(start_epoch, end_epoch, 10))
+    lines += ax.plot(df['epoch'][pts], y[pts], color='black', marker='o',markersize=5, label='both inputs')
+    lines += ax.plot(df['epoch'][pts], y_a[pts], color='red', marker='o',markersize=5, label='input_a')
+    lines += ax.plot(df['epoch'][pts], y_b[pts], color='orange', marker='o',markersize=5, label='input_b')
     ax.axvline(x=deficit_end, linestyle=':', color=color)
 
 plt.xlim(0, df['epoch'].max())
-
-
 plt.title(args.title)
 plt.xlabel('Epoch')
 ax.set_ylabel('Usable info (bits)')
@@ -95,9 +87,10 @@ if args.hide_y:
 
 
 labs = [l.get_label() for l in lines]
-plt.legend(lines, labs, loc=1, prop={'size': 9})
+plt.legend(lines, labs, prop={'size': 9})
 
 plt.tight_layout()
-output=f'plots/information_all_{args.save_suffix}.pdf'
-plt.savefig(output, format=args.format, dpi=None, bbox_inches='tight')
+output_dir = os.path.join('plots', args.save_dir) if args.save_dir is not None else 'plots'
+output_dir = os.path.join (output_dir, f'information_all_{args.save_suffix}.pdf')
+plt.savefig(output_dir, format=args.format, dpi=None, bbox_inches='tight')
 

@@ -11,6 +11,7 @@ parser.add_argument('experiment', type=str,
 parser.add_argument('--format', '-f', default='png', type=str,
                     help='output a format')
 parser.add_argument('--name', '-n', default='sresnet.pdf', type=str)
+parser.add_argument('--save_dir', default=None, type=str)
 parser.add_argument('--title', '-t', default=None, type=str,
                     help='title of the plot')
 parser.add_argument('--min-y', '-y', default=None, type=float,
@@ -32,4 +33,4 @@ with open('experiments/{}.json'.format(args.experiment)) as f:
 print(exlog['runs'])
 
 for i, log in enumerate(exlog['runs']): # doesn't include the main run
-    rc = subprocess.call(f"python plot_information_all.py {log} -t \"Resume {i * 20}\" --save_suffix {i * 20}", shell=True)
+    rc = subprocess.call(f"python plot_information_all.py {log} -t \"Resume {i * 20}\" --save_suffix {i * 20} --save_dir {args.save_dir}", shell=True)
