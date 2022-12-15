@@ -18,6 +18,8 @@ import torch.utils.data
 from logger import Logger
 from models import SResNet18, SResNet18MultiHead, DoubleNLayerDisciminator
 from utils import get_dominance, get_error, AverageMeter, set_batchnorm_mode
+import torchvision
+import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Critical period experiments')
 parser.add_argument('--arch', default='sresnet', type=str,
@@ -118,6 +120,28 @@ def train(data_loader, model, criterion, optimizer, epoch, train=True):
         input_b = input_b.to(device)
         target = target.to(device)
 
+        # MK, Dec 8
+        if args.show and epoch == 0 and i == 0:
+            with torch.no_grad():
+                # for ii in range(10):
+                grid = torchvision.utils.make_grid(input_a[:10], nrow=10, normalize=True)
+                # convert the grid into a numpy array suitable for plt
+                grid_np = grid.cpu().numpy().transpose(1, 2, 0)  # channel dim should be last
+                plt.matshow(grid_np)
+                plt.xticks([])
+                plt.yticks([])
+                plt.savefig(f'images/examples_left_nodef.pdf')
+                plt.close()
+
+                grid = torchvision.utils.make_grid(input_b[:10], nrow=10, normalize=True)
+                # convert the grid into a numpy array suitable for plt
+                grid_np = grid.cpu().numpy().transpose(1, 2, 0)  # channel dim should be last
+                plt.matshow(grid_np)
+                plt.xticks([])
+                plt.yticks([])
+                plt.savefig(f'images/examples_right_nodef.pdf')
+            sys.exit()
+
         # compute output
         output, _ = model(input_a, input_b)
         loss = criterion(output, target)
@@ -202,7 +226,6 @@ if __name__ == '__main__':
     logger['args'] = args
     logger['checkpoint'] = os.path.join('models/', logger.index + '.pth')
     logger['checkpoint_step'] = os.path.join('models/', logger.index + '_{}.pth')
-
     print ("[Logging in {}]".format(logger.index))
 
     # -- 1. Architecture: sresnetmulti has multiple heads to read out outputs
