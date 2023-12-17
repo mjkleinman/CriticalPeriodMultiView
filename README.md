@@ -1,14 +1,6 @@
-# Critical periods for multisensory training.
+# Critical Learning Periods for Multisensory Integration in Deep Networks.
 
-Similar to humans and animals, we show that in deep networks the ability to integrate and extract common information
-from multiple sensors heavily relies on being exposed to properly correlated sensory data during an initial period of
-development known as a *critical learning period*. In particular, we show that supervised multi-sensor networks are
-particularly sensitive to corruptions in the data distribution as well as mismatch in the learning dynamics at the
-beginning of training. In these situations, while they still learn to extract unique information from each modality,
-their ability to extract and process synergistic information is permanently impaired as well as their performance on
-downstream tasks, mirroring the observations in animals. To study the emergence of sensor integration, we introduce a
-new measure of sensor integration, called Fractional Sensor Variance which allows us to track the internal
-representations during training and as a result of the deficit.
+Official code repository for [Critical Learning Periods for Multisensory Integration in Deep Networks (CVPR 2023)](https://arxiv.org/abs/2210.04643)
 
 ## Requirements
 
@@ -47,7 +39,7 @@ file and comment/uncomment the part relative to the desired experiment, then exe
 train several networks in parallel, one per available gpu, and collect the results in a json file in the `experiments`
 directory. The file can then be loaded by the various plotting utilities to display the results of the experiment.
 
-## Evaluating the Fractional Sensor Variance of a Trained Model:
+## Evaluating the Relative Source Variance of a Trained Model:
 
 Add the flag `--dominance` to `./main.py`, and specify the architecture, view size, and model checkpoint. For example,
 run:
@@ -72,3 +64,15 @@ with pickle or json (see also the code of the plotting utilities to see how to l
 ## Licenses
 
 The code of this repository is released under the [Apache 2.0 license](LICENSE).
+
+---
+If you find this useful for your work, please consider citing
+```
+@inproceedings{kleinman2023critical,
+  title={Critical Learning Periods for Multisensory Integration in Deep Networks},
+  author={Kleinman, Michael and Achille, Alessandro and Soatto, Stefano},
+  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
+  pages={24296--24305},
+  year={2023}
+}
+```
